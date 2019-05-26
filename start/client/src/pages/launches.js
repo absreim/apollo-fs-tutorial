@@ -4,22 +4,28 @@ import gql from 'graphql-tag'
 
 import { LaunchTile, Header, Button, Loading } from '../components'
 
+export const LAUNCH_TILE_DATA = gql`
+  fragment LaunchTile on Launch {
+    id
+    isBooked
+    rocket {
+      id
+      name
+    }
+    mission {
+      name
+      missionPatch
+    }
+  }
+`
+
 const GET_LAUNCHES = gql`
   query launchList($after: String) {
     launches(after: $after) {
       cursor
       hasMore
       launches {
-        id
-        isBooked
-        rocket {
-          id
-          name
-        }
-        mission {
-          name
-          missionPatch
-        }
+        ...LaunchTile
       }
     }
   }
@@ -28,7 +34,7 @@ const GET_LAUNCHES = gql`
 export default function Launches() {
   return (
     <Query query={GET_LAUNCHES}>
-      {({ data, loading, error }) => {
+      {({ data, loading, error, fetchMore }) => {
         if (loading) return <Loading />
         if (error) return <p>ERROR</p>
 
@@ -43,6 +49,34 @@ export default function Launches() {
                   launch={launch}
                 />
               ))
+            }
+            { data.launches &&
+              data.launches.hasMore && (
+                <Button
+                  onClick={() =>
+                    fetchMore({
+                      variables: {
+                        after: data.launches.cursor,
+                      },
+                      updateQuery: (prev, { fetchMoreResult }) => {
+                        if (!fetchMoreResult) return prev;
+                        return {
+                          ...fetchMoreResult,
+                          launches: {
+                            ...fetchMoreResult.launches,
+                            launches: [
+                              ...prev.launches.launches,
+                              ...fetchMoreResult.launches.launches
+                            ]
+                          }
+                        }
+                      }
+                    })
+                  }
+                >
+                  Load More
+                </Button>
+              )
             }
           </Fragment>
         )
